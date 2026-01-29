@@ -11,10 +11,16 @@ from torchvision import transforms, datasets, models
 from PIL import Image, ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 import random
-from net import *
-import net as network
+from models.unet_w_cartesian_se import *
+# import models.unet_w_se.U_Net_w_se as network
 import numpy as np
-
+from collections import defaultdict
+import torch
+import torch.optim as optim
+from torch.optim import lr_scheduler
+import time
+import copy
+import math
 
 #os.chdir("/content/drive/MyDrive/ISBI_pytorch/ISBI_pytorch")
 batch_size = 1
@@ -27,14 +33,62 @@ dataloaders = {
     'test': DataLoader(dataload(path='data/test2', H=H, W=W, pow_n=8, aug=False), batch_size=batch_size, shuffle=False, num_workers=8)
 }
 
-from collections import defaultdict
-import torch
-import torch.optim as optim
-from torch.optim import lr_scheduler
-import time
-import copy
+class CosineAnnealingWarmUpRestarts(optim.lr_scheduler._LRScheduler):
+    def __init__(self, optimizer, T_0, T_mult=1, eta_max=0.1, T_up=0, gamma=1., last_epoch=-1):
+        if T_0 <= 0 or not isinstance(T_0, int):
+            raise ValueError("Expected positive integer T_0, but got {}".format(T_0))
+        if T_mult < 1 or not isinstance(T_mult, int):
+            raise ValueError("Expected integer T_mult >= 1, but got {}".format(T_mult))
+        if T_up < 0 or not isinstance(T_up, int):
+            raise ValueError("Expected positive integer T_up, but got {}".format(T_up))
+        self.T_0 = T_0
+        self.T_mult = T_mult
+        self.base_eta_max = eta_max
+        self.eta_max = eta_max
+        self.T_up = T_up
+        self.T_i = T_0
+        self.gamma = gamma
+        self.cycle = 0
+        self.T_cur = last_epoch
+        super(CosineAnnealingWarmUpRestarts, self).__init__(optimizer, last_epoch)
 
-# loss 코드
+    def get_lr(self):
+        if self.T_cur == -1:
+            return self.base_lrs
+        elif self.T_cur < self.T_up:
+            return [(self.eta_max - base_lr) * self.T_cur / self.T_up + base_lr for base_lr in self.base_lrs]
+        else:
+            return [base_lr + (self.eta_max - base_lr) * (
+                        1 + math.cos(math.pi * (self.T_cur - self.T_up) / (self.T_i - self.T_up))) / 2
+                    for base_lr in self.base_lrs]
+
+    def step(self, epoch=None):
+        if epoch is None:
+            epoch = self.last_epoch + 1
+            self.T_cur = self.T_cur + 1
+            if self.T_cur >= self.T_i:
+                self.cycle += 1
+                self.T_cur = self.T_cur - self.T_i
+                self.T_i = (self.T_i - self.T_up) * self.T_mult + self.T_up
+        else:
+            if epoch >= self.T_0:
+                if self.T_mult == 1:
+                    self.T_cur = epoch % self.T_0
+                    self.cycle = epoch // self.T_0
+                else:
+                    n = int(math.log((epoch / self.T_0 * (self.T_mult - 1) + 1), self.T_mult))
+                    self.cycle = n
+                    self.T_cur = epoch - self.T_0 * (self.T_mult ** n - 1) / (self.T_mult - 1)
+                    self.T_i = self.T_0 * self.T_mult ** (n)
+            else:
+                self.T_i = self.T_0
+                self.T_cur = epoch
+
+        self.eta_max = self.base_eta_max * (self.gamma ** self.cycle)
+        self.last_epoch = math.floor(epoch)
+        for param_group, lr in zip(self.optimizer.param_groups, self.get_lr()):
+            param_group['lr'] = lr
+
 def L1_loss(pred, target):
     loss = torch.mean(torch.abs(pred - target))
     metrics['loss'] += loss.data.cpu().numpy() * target.size(0)
@@ -54,14 +108,14 @@ num_class = 19
 if __name__ == '__main__':
 
     #model=torch.load('BEST.pt').to(device)
-    model=network.U_Net(1, num_class).to(device)
+    model = U_Net_w_Cartesian_SE(1, num_class).to(device)
     # model.load_state_dict(torch.load(r'E:\X-Ray\model\1_3py\Network_0.0016705767484381795_E_259.pth',map_location=device_txt))
 
     # Observe that all parameters are being optimized
     num_epochs = 1000
     # optimizer = optim.Adam(model.parameters(), lr=1e-5)
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
-    scheduler = lr_scheduler.CosineAnnealingLR(optimizer, num_epochs)
+    optimizer = optim.Adam(model.parameters(), lr=1e-10)
+    scheduler = CosineAnnealingWarmUpRestarts(optimizer=optimizer, T_0=100, T_mult=2, eta_max=1e-5, T_up=1, gamma=0.3)
     print("****************************GPU : ", device)
 
     best_model_wts = copy.deepcopy(model.state_dict())
@@ -78,7 +132,7 @@ if __name__ == '__main__':
 
     for epoch in range(num_epochs):
         print('========================' * 9)
-        print('Epoch {}/{}, learning_rate {}'.format(epoch, num_epochs - 1, scheduler.get_last_lr()))
+        print('Epoch {}/{}, learning_rate {}'.format(epoch, num_epochs - 1, scheduler.get_lr()))
         print('------------------------' * 9)
         now = time.time()
 
@@ -94,7 +148,6 @@ if __name__ == '__main__':
 
             for inputs, labels in dataloaders[phase]:
                 inputs = inputs.to(device)
-                print(inputs.shape)
                 labels = labels.to(device)
 
                 optimizer.zero_grad()
@@ -138,8 +191,8 @@ if __name__ == '__main__':
             print(phase,"Joint loss :", epoch_Jointloss )
             # deep copy the model
 
-            savepath1 = r'E:\X-Ray\model\Original_SE_block_All_U_Net_002_3\Network_{}_E_{}.pth'
-            savepath2 = r'E:\X-Ray\model\Original_SE_block_All_U_Net_002_3\Best_Network_{}_E_{}.pth'
+            savepath1 = r'E:\X-Ray\model\U_Net_005_1\Network_{}_E_{}.pth'
+            savepath2 = r'E:\X-Ray\model\U_Net_005_1\Best_Network_{}_E_{}.pth'
             if phase == 'val' and epoch_Jointloss < best_val_loss:
                 print("saving best val model")
                 best_val_loss = epoch_Jointloss
@@ -157,7 +210,7 @@ if __name__ == '__main__':
     plt.plot(train_losses)
     plt.plot(val_losses)
     plt.plot(test_losses)
-    plt.title('Original_SE_block_All_U_Net_002_3')
+    plt.title('Original_SE_block_All_U_Net_005_1')
     plt.xlabel('epoch')
     plt.ylabel('loss')
     plt.legend(['Train', 'Valid', 'Test'])
