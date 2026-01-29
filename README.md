@@ -33,16 +33,13 @@ CephLD-CCA는 두부 측면의 X-ray(cephalogram) 이미지를 입력으로 받�
 
 
 ## 🚀 Train
-- Vanilla U-Net 학습
-
+#### Vanilla U-Net 학습
 `python train_unet.py`
 
-- SE 채널 어텐션을 활용한 U-Net 학습
-
+#### SE 채널 어텐션을 활용한 U-Net 학습
 `python train_unet_w_se.py`
 
-- Cartesian Coordinate 기반 채널 어텐션을 활용한 CephLD-CCA 학습
-
+#### Cartesian Coordinate 기반 채널 어텐션을 활용한 CephLD-CCA 학습
 `python train_unet_w_cartesian_se.py`
 
 
