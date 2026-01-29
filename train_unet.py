@@ -11,7 +11,7 @@ from torchvision import transforms, datasets, models
 from PIL import Image, ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 import random
-from models.unet_w_se import *
+from models.unet import *
 # import models.unet_w_se.U_Net_w_se as network
 import numpy as np
 from collections import defaultdict
@@ -108,7 +108,7 @@ num_class = 19
 if __name__ == '__main__':
 
     #model=torch.load('BEST.pt').to(device)
-    model = U_Net_SE(1, num_class).to(device)
+    model = U_Net(1, num_class).to(device)
     # model.load_state_dict(torch.load(r'E:\X-Ray\model\1_3py\Network_0.0016705767484381795_E_259.pth',map_location=device_txt))
 
     # Observe that all parameters are being optimized

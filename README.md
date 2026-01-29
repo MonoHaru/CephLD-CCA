@@ -1,63 +1,75 @@
-Simple easy to use Pytorch module to get the intermediate layers outputs from chosen submodules. Inspired in [this](https://github.com/pytorch/vision/blob/f76e598d47879dbd917bf5936bbd11ff41632787/torchvision/models/_utils.py#L7) but does not assume that submodules are executed sequentially. Pypi [link](https://pypi.org/project/torch-intermediate-layer-getter/)
+# CephLD-CCA: Cephalometric Landmark Detection with Cartesian Coordinate Channel Attention
+*(데카르트 좌표 기반 채널 어텐션을 적용한 두부 측면 X-ray 계측점 자동 검출 네트워크)*
 
-List of features:
-- Supports submodule annidation (module1.submodule2.submodule3)
-- In case that a module is called more than once during a forward pass, all it's outputs are saved a in a list.
 
-# Installation
+CephLD-CCA는 두부 측면의 X-ray(cephalogram) 이미지를 입력으로 받아 계측점(cephalometric landmark)의 위치를 자동으로 추정하는 딥러닝 기반 모델입니다. 특히, 채널 어텐션 기법인 SE(Squeeze-and-Excitation)-block을 변형하여 데카르트 좌표(Cartesian coordinate) 기반의 채널 어텐션(Channel Attention) 블록인 CCA를 설계했으며, 이를 통해 계측점 검출 성능 향상을 목표로 합니다.
 
-```sh
-pip install torch-intermediate-layer-getter
-```
 
-# Usage
-## Example
+## 🏆 Awards
+### 수상
+- **대회명**: 2021 SW중심대학 융합SW 교육원 AI 경진대회
+- **기간**: 2021.06 - 2021.07
+- **주최**: 과학기술정보통신부
+- **수상**: 🥇 **1등상**
 
-```python
-import torch
-import torch.nn as nn
 
-from torch_intermediate_layer_getter import IntermediateLayerGetter as MidGetter
+## ⚙️ Tech Stacks
+- U-Net
+- SE (Squeeze-and-Excitation) / Channel Attention
+- PyTorch
+- Python
+- CUDA
+- OpenCV
 
-class Model(nn.Module):
-    def __init__(self):
-        super().__init__()
 
-        self.fc1 = nn.Linear(2, 2)
-        self.fc2 = nn.Linear(2, 2)
-        self.nested = nn.Sequential(
-            nn.Sequential(nn.Linear(2, 2), nn.Linear(2, 3)),
-            nn.Linear(3, 1),
-        )
-        self.interaction_idty = nn.Identity() # Simple trick for operations not performed as modules
+## ✨ Features
+- **데카르트 좌표 기반 채널 어텐션 모듈(CCA) 설계**
+- 좌표 정보를 채널 어텐션에 반영하여 **landmark의 미세한 위치 단서를 강화**
+- Vanilla U-Net 및 SE 어텐션 기반 U-Net 대비 **더 높은 계측점 검출 성능 달성**
 
-    def forward(self, x):
-        x1 = self.fc1(x)
-        x2 = self.fc2(x)
 
-        interaction = x1 * x2
-        self.interaction_idty(interaction)
+## 🧭 Overview
+<img src="https://github.com/MonoHaru/ToxHerb-Net/blob/main/assets/process.png" alt="process" width="700">
 
-        x_out = self.nested(interaction)
 
-        return x_out
-        
-model = Model()
-return_layers = {
-    'fc2': 'fc2',
-    'nested.0.1': 'nested',
-    'interaction_idty': 'interaction',
-}
-mid_getter = MidGetter(model, return_layers=return_layers, keep_output=True)
-mid_outputs, model_output = mid_getter(torch.randn(1, 2))
+## 🚀 Train
+- Vanilla U-Net 학습
+`python train_unet.py`
 
-print(model_output)
->> tensor([[0.3219]], grad_fn=<AddmmBackward>)
-print(mid_outputs)
->> OrderedDict([('fc2', tensor([[-1.5125,  0.9334]], grad_fn=<AddmmBackward>)),
-  ('interaction', tensor([[-0.0687, -0.1462]], grad_fn=<MulBackward0>)),
-  ('nested', tensor([[-0.1697,  0.1432,  0.2959]], grad_fn=<AddmmBackward>))])
+- SE 채널 어텐션을 활용한 U-Net 학습
+`python train_unet_w_se.py`
 
-# model_output is None if keep_ouput is False
-# if keep_output is True the model_output contains the final model's output
-```
+- Cartesian Coordinate 기반 채널 어텐션을 활용한 CephLD-CCA 학습
+`python train_unet_w_cartesian_se.py`
+
+
+## 🛠️ Train Experimental Settings
+- Optimizer: Adam
+- Learning Rate: 1e-10
+- Learning Rate Scheduler: CosineAnnealingWarmUpRestarts
+- Loss function: L2 loss
+- Batch size: 1
+
+
+## 🧪 Test
+`python val_test.py`
+
+
+## 🎯 Results
+#### Table 1. Compared deteciton performance wit Vanilla U-Net, SE U-Net, and CephLD-CCA
+| Model | Error Rate ↓ |
+| :------ | :---: |
+| Vamilaa U-Net | 0.0053 |
+| U-Net w/ SE | 0.0008 |
+| CephLD-CCA (Ours) | 0.0006 |
+
+
+## 🔮 Future Work
+1. 현재 배치 사이즈를 1로 고정하고 배치 정규화(batch normalization)를 사용하지 않아 학습이 불안정해질 수 있으므로, 배치 사이즈를 늘리고 정규화를 도입하여 학습 안정성을 확보
+2. Vanilla U-Net 기반 구조를 확장/변형하여 랜드마크 검출 성능을 추가로 향상
+3. 더 많은 데이터 확보 또는 데이터 증강 기법을 적용하여 일반화 성능 향상
+4. U-Net의 무겁고 느린 추론 시간을 개선하기 위해서 지식 증류(knowledge distillation) 등을 통해 성능을 유지하면서 추론 시간 최적화
+
+
+## 📜 License
+The code in this repository is released under the GPL-3.0 license License.
