@@ -23,9 +23,9 @@ CephLD-CCA는 두부 측면의 X-ray(cephalogram) 이미지를 입력으로 받�
 
 
 ## ✨ Features
-- **데카르트 좌표 기반 채널 어텐션 모듈(CCA) 설계**
-- 좌표 정보를 채널 어텐션에 반영하여 **landmark의 미세한 위치 단서를 강화**
-- Vanilla U-Net 및 SE 어텐션 기반 U-Net 대비 **더 높은 계측점 검출 성능 달성**
+1. **데카르트 좌표 기반 채널 어텐션 모듈(CCA) 설계**
+2. 좌표 정보를 채널 어텐션에 반영하여 **landmark의 미세한 위치 단서를 강화**
+3. Vanilla U-Net 및 SE 어텐션 기반 U-Net 대비 **더 높은 계측점 검출 성능 달성**
 
 
 ## 🧭 Overview
