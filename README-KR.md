@@ -1,3 +1,5 @@
+🌐 Languages: [[English](README.md)] | [[한국어](README-KR.md)]
+
 # CephLD-CCA: Cephalometric Landmark Detection with Cartesian Coordinate Channel Attention
 *(데카르트 좌표 기반 채널 어텐션을 적용한 두부 측면 X-ray 계측점 자동 검출 네트워크)*
 

@@ -1,3 +1,5 @@
+🌐 Languages: [[English](README.md)] | [[한국어](README-KR.md)]
+
 # CephLD-CCA: Cephalometric Landmark Detection with Cartesian Coordinate Channel Attention
 *(A cephalometric landmark detection network for lateral skull X-ray images using Cartesian coordinate–based channel attention)*
 
